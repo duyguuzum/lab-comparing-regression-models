@@ -1,0 +1,213 @@
+Lab | Comparing regression models
+
+Instructions
+1-Define X and y
+
+import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
+import numpy as np
+-----
+customer_df = pd.read_csv('customer_value_analysis.csv')
+display(customer_df.shape)
+customer_df.head()
+-----
+X = customer_df.drop(['Total Claim Amount'],axis=1)
+y = customer_df['Total Claim Amount']
+
+2-Import sklearn train_test_split and separate the data. Set test_size=0.30 and random_state=31
+
+from sklearn.model_selection import train_test_split
+
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.30, random_state=31)
+
+3-Separate X_train and X_test into numerical and categorical (X_train_cat , X_train_num , X_test_cat , X_test_num)
+
+X_train_num = X_train.select_dtypes(np.number)
+X_test_num= X_test.select_dtypes(np.number)
+X_train_num.head()
+-----
+X_train_cat = X_train.select_dtypes(include=['object', 'category'])
+X_test_cat = X_test.select_dtypes(include=['object', 'category'])
+X_train_cat.head()
+
+4-Encode the categorical variables X_train_cat and X_test_cat using the OneHotEncoder setup in the previous lab. Remember to use .toarray() after .transform() to endup with a numpy array. Next, cast the resulting numpy arrays into pandas DataFrames. Make sure that the column names of the new dataframes are correctly setup using encoder.get_feature_names_out() and the same indexes of X_train_cat and X_test_cat
+
+X_train_cat.drop('Customer', axis=1, inplace=True)
+------
+X_test_cat.drop('Customer', axis=1, inplace=True)
+------
+from sklearn.preprocessing import OneHotEncoder
+# Create the OneHotEncoder object
+encoder = OneHotEncoder(handle_unknown='ignore')
+
+# Fit the encoder on the training data
+encoder.fit(X_train_cat)
+
+# Transform the categorical variables in both the training and test sets
+X_train_encoded = encoder.transform(X_train_cat).toarray()
+X_test_encoded = encoder.transform(X_test_cat).toarray()
+
+
+# Create pandas DataFrames for the encoded variables
+X_train_encoded_df = pd.DataFrame(X_train_encoded, columns = encoder.get_feature_names_out(), index= X_train_cat.index)
+X_test_encoded_df = pd.DataFrame(X_test_encoded, columns = encoder.get_feature_names_out(), index=X_test_cat.index)
+
+display(X_train_encoded_df.head())
+display(X_test_encoded_df.head())
+
+5-Use X_train_num to fit a power transformer. Transform BOTH X_train_num and X_test_num. Next, cast the resulting numpy arrays as pandas dataframes. Make sure to set the correct columns names and to use the same indexes of X_train_num and X_test_num. Name the final resulting dataframes as: X_train_num_transformed_df and X_test_num_transformed_df
+
+from sklearn.preprocessing import PowerTransformer
+
+# Fit and transform the numerical features in X_train_num
+pt = PowerTransformer()
+X_train_num_transformed = pt.fit_transform(X_train_num)
+
+# Transform the numerical features in X_test_num
+X_test_num_transformed = pt.transform(X_test_num)
+
+# Create pandas dataframes with the transformed data
+X_train_num_transformed_df = pd.DataFrame(X_train_num_transformed, columns=X_train_num.columns, index=X_train_num.index)
+X_test_num_transformed_df = pd.DataFrame(X_test_num_transformed, columns=X_test_num.columns, index=X_test_num.index)
+
+6-Concat X_train_num_transformed_df and X_train_cat_encoded_df into X_train_new and X_test_num_transformed_df and X_test_cat_encoded_df into X_test_new
+
+ Concatenate X_train_num_transformed_df and X_train_cat_encoded_df into X_train_new
+X_train_new = pd.concat([X_train_num_transformed_df, X_train_encoded_df], axis=1)
+
+# Concatenate X_test_num_transformed_df and X_test_cat_encoded_df into X_test_new
+X_test_new = pd.concat([X_test_num_transformed_df, X_test_encoded_df], axis=1)
+
+7-Fit a MinMax scaler using X_train_new and transform X_train_new and X_test_new. Create new pandas dataframes from the resulting numpy arrays. Remember to set the correct columns names and indexes. Name the resulting dataframes as: X_train_new_scaled_df and X_test_new_scaled_df
+
+from sklearn.preprocessing import MinMaxScaler
+
+# Create MinMaxScaler object
+scaler = MinMaxScaler()
+
+# Fit scaler on X_train_new
+scaler.fit(X_train_new)
+
+# Transform X_train_new and X_test_new
+X_train_new_scaled = scaler.transform(X_train_new)
+X_test_new_scaled = scaler.transform(X_test_new)
+
+# Create new pandas dataframes
+X_train_new_scaled_df = pd.DataFrame(X_train_new_scaled, columns=X_train_new.columns, index=X_train_new.index)
+X_test_new_scaled_df = pd.DataFrame(X_test_new_scaled, columns=X_test_new.columns, index=X_test_new.index)
+
+8-Train a simple linear regression model using X_train_new_scaled_df, and get the predictions for the train and test sets
+
+# Step 1: Import the necessary libraries
+from sklearn.linear_model import LinearRegression
+
+# Step 2: Instantiate the linear regression model
+model = LinearRegression()
+
+# Step 3: Fit the model to the training data
+model.fit(X_train_new_scaled_df, y_train)
+
+# Step 4: Make predictions for the training and test sets
+train_predictions = model.predict(X_train_new_scaled_df)
+test_predictions = model.predict(X_test_new_scaled_df)
+
+9-Create a function that given a model prediction and real values returns a pandas dataframe with the following table:
+Error_metric	Value 
+MAE	value
+MSE	value
+RMSE	value
+MAPE	value
+R2	value
+
+from sklearn.metrics import mean_absolute_error, mean_squared_error, mean_squared_log_error, r2_score
+
+def calculate_error_metrics(predictions, real_values):
+    error_metrics = {
+        'MAE': mean_absolute_error(real_values, predictions),
+        'MSE': mean_squared_error(real_values, predictions),
+        'RMSE': np.sqrt(mean_squared_error(real_values, predictions)),
+        'MAPE': np.mean(np.abs((real_values - predictions) / real_values)) * 100,
+        'R2': r2_score(real_values, predictions)
+    }
+
+    df = pd.DataFrame.from_dict(error_metrics, orient='index', columns=['Value'])
+    return df
+
+10-Evaluate the linear model predictions using the previous function on the TRAIN and TEST sets
+
+error_metrics_df = calculate_error_metrics(train_predictions, y_train)
+
+# Display the DataFrame
+print(error_metrics_df)
+------
+error_metrics_df = calculate_error_metrics(test_predictions, y_test)
+
+# Display the DataFrame
+print(error_metrics_df)
+
+11-Now define a function that takes as an input: list of models, X_train and y_train to train several model (with default values) so we can train a lot of them without repeating code. The function must return the list of trained models.
+
+from sklearn.linear_model import LinearRegression
+from sklearn.neighbors import KNeighborsRegressor
+from sklearn.neural_network import MLPRegressor
+
+def train_models(models, X_train, y_train):
+    trained_models = []
+    
+    for model in models:
+        clf = model()
+        clf.fit(X_train, y_train)
+        trained_models.append(clf)
+    
+    return trained_models
+
+12-Use the function to train the following models (with default settings):
+*LinearRegressor
+
+*KNeighborsRegressor
+
+*MLPRegressor
+13-Evaluate the models with the function created earlier in the TRAIN and TEST sets. Which model performs best with the default options?
+
+from sklearn.metrics import mean_squared_error
+
+def evaluate_models(models, X_train, y_train, X_test, y_test):
+    results = []
+    
+    for clf in models:
+        y_train_pred = clf.predict(X_train)
+        train_error = mean_squared_error(y_train, y_train_pred)
+        
+        y_test_pred = clf.predict(X_test)
+        test_error = mean_squared_error(y_test, y_test_pred)
+        
+        results.append((clf.__class__.__name__, train_error, test_error))
+    
+    return results
+------
+from sklearn.model_selection import train_test_split
+from sklearn.datasets import make_regression
+
+# Generate a toy regression dataset
+X, y = make_regression(n_samples=100, n_features=10, random_state=42)
+
+# Split the dataset into train and test sets
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# Define the list of models
+models = [LinearRegression, KNeighborsRegressor, MLPRegressor]
+
+# Train the models
+trained_models = train_models(models, X_train, y_train)
+
+# Evaluate the models
+results = evaluate_models(trained_models, X_train, y_train, X_test, y_test)
+
+# Print the results
+for model, train_error, test_error in results:
+    print(f"Model: {model}")
+    print(f"Train Error: {train_error}")
+    print(f"Test Error: {test_error}")
+    print()
+
